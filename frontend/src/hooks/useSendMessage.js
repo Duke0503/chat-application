@@ -1,23 +1,32 @@
-import { useEffect } from "react";
-
-import { useSocketContext } from "../context/SocketContext";
+import { useState } from "react";
 import useConversation from "../zustand/useConversation";
+import toast from "react-hot-toast";
 
-import notificationSound from "../assets/sounds/notification.mp3";
+const useSendMessage = () => {
+	const [loading, setLoading] = useState(false);
+	const { messages, setMessages, selectedConversation } = useConversation();
 
-const useListenMessages = () => {
-	const { socket } = useSocketContext();
-	const { messages, setMessages } = useConversation();
+	const sendMessage = async (message) => {
+		setLoading(true);
+		try {
+			const res = await fetch(`/api/messages/send/${selectedConversation._id}`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ message }),
+			});
+			const data = await res.json();
+			if (data.error) throw new Error(data.error);
 
-	useEffect(() => {
-		socket?.on("newMessage", (newMessage) => {
-			newMessage.shouldShake = true;
-			const sound = new Audio(notificationSound);
-			sound.play();
-			setMessages([...messages, newMessage]);
-		});
+			setMessages([...messages, data]);
+		} catch (error) {
+			toast.error(error.message);
+		} finally {
+			setLoading(false);
+		}
+	};
 
-		return () => socket?.off("newMessage");
-	}, [socket, setMessages, messages]);
+	return { sendMessage, loading };
 };
-export default useListenMessages;
+export default useSendMessage;
